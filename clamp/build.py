@@ -258,6 +258,10 @@ class JarCopy(OutputJar):
                     self.jar.write(chunk, 0, read)
         self.jar.closeEntry()
 
+    def copy_bytes(self, relpath, bytez):
+        self.jar.putNextEntry(JarEntry(relpath))
+        self.jar.write(bytez)
+        self.jar.closeEntry()
 
 class JarBuilder(OutputJar):
 
@@ -453,3 +457,28 @@ def create_singlejar(output_path, classpath, runpy):
 
         if runpy and os.path.exists(runpy):
             singlejar.copy_file("__run__.py", runpy)
+
+def create_war_fromjar(output_path, jar, application):
+    with JarCopy(output_path=output_path) as war:
+        print("Building war...")
+        war.copy_file("WEB-INF/lib/wsgi-app.jar", jar)
+        war.copy_bytes("WEB-INF/web.xml",
+                       b"""
+                       <!DOCTYPE web-app
+                       PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+                       "http://java.sun.com/dtd/web-app_2_3.dtd">
+                       <web-app>
+                          <servlet>
+                             <servlet-name>modjy</servlet-name>
+                             <servlet-class>com.xhaus.modjy.ModjyJServlet</servlet-class>
+                             <init-param>
+                                 <param-name>app_import_name</param-name>
+                                 <param-value>{}</param-value>
+                             </init-param>
+                          </servlet>
+                         <servlet-mapping>
+                             <servlet-name>modjy</servlet-name>
+                             <url-pattern>/*</url-pattern>
+                         </servlet-mapping>
+                       </web-app>
+                       """.format(application))
